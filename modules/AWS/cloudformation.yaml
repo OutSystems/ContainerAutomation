@@ -1,0 +1,308 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  ClusterName:
+    Type: String
+    Default: OutSystemsDemoCluster
+  RepositoryName:
+    Type: String
+    Default: outsystemsdemorepository
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+  InstanceType:
+    Type: String
+    Default: m5.large
+  OutSystemsPlatformFrontendServers:
+    Type: List<AWS::EC2::Instance::Id>
+  ManagementIPAddress:
+    Type: String
+    Description: Management (Office) address in CIDR notation
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+Mappings:
+  Parameters:
+    # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_Windows_getting_started.html
+    us-east-2:
+      ami: ami-0aa2bc91e0ae61f20
+    us-east-1:
+      ami: ami-01b701d1a348a0d00
+    us-west-2:
+      ami: ami-0fded406f9181f23e
+    us-west-1:
+      ami: ami-0fc5ce74467bede32
+    eu-west-2:
+      ami: ami-0b424d1a14d65dc82
+    eu-west-3:
+      ami: ami-029022cbb6ed8b0ff
+    eu-west-1:
+      ami: ami-093e70c8eaf8bf855
+    eu-central-1:
+      ami: ami-0cd14231d2781b2d4
+    ap-northeast-2:
+      ami: ami-0718ed3169284fcb2
+    ap-northeast-1:
+      ami: ami-03e8262ffcd3dc2ef
+    ap-southeast-2:
+      ami: ami-09d2320e193d0a987
+    ap-southeast-1:
+      ami: ami-041abe3853451bde6
+    ca-central-1:
+      ami: ami-0ce95db503b24b9bb
+    ap-south-1:
+      ami: ami-0d01ca46dc1c075ef
+    sa-east-1:
+      ami: ami-09c3ab7eae7794ef9
+    us-gov-west-1:
+      ami: ami-b27510d3
+Resources:
+  ECSCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: !Ref ClusterName
+  ImageRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName
+  ContainerConfigurationBucket:
+    Type: AWS::S3::Bucket
+    Properties: {}
+  ClusterInstancesRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2008-10-17'
+        Statement:
+        - Sid: ''
+          Effect: Allow
+          Principal:
+            Service: ec2.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+       - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+       - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+  ClusterInstancesProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+      - !Ref ClusterInstancesRole
+  ClusterInstancesReadFromS3Policy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Roles:
+      - !Ref ClusterInstancesRole
+      PolicyName: ReadConfigFromS3
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Action:
+              - "s3:GetBucketLocation"
+              - "s3:ListBucket"
+            Resource: !GetAtt ContainerConfigurationBucket.Arn
+          -
+            Effect: "Allow"
+            Action:
+              - "s3:GetObject"
+            Resource: !Sub "${ContainerConfigurationBucket.Arn}/*"
+  RDSDBInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group that allows communication with the DB Instance
+      VpcId: !Ref VpcId
+  RDSDBInstanceSGIngressRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Microsoft SQLServer
+      FromPort: 1433
+      GroupId: !Ref RDSDBInstanceSecurityGroup
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref RDSDBInstanceSecurityGroup
+      ToPort: 1433
+  RDSDBInstanceSGIngressRule2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Oracle SQL Net listener
+      FromPort: 1521
+      GroupId: !Ref RDSDBInstanceSecurityGroup
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref RDSDBInstanceSecurityGroup
+      ToPort: 1521
+  LoadBalancerPublicSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public Security Group for Load Balancer
+      VpcId: !Ref VpcId
+  PublicSGIngressRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: 0.0.0.0/0
+      Description: HTTP
+      FromPort: 80
+      GroupId: !Ref LoadBalancerPublicSecurityGroup
+      IpProtocol: tcp
+      ToPort: 80
+  ClusterInstancesServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Service Security Group for Cluster Instances
+      VpcId: !Ref VpcId
+  ClusterInstancesServiceSGIngressRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Internal communication
+      FromPort: 0
+      GroupId: !Ref ClusterInstancesServiceSecurityGroup
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref ClusterInstancesServiceSecurityGroup
+      ToPort: 65535
+  ClusterInstancesServiceSGIngressRule2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: !Ref ManagementIPAddress
+      Description: Office communication
+      FromPort: 0
+      GroupId: !Ref ClusterInstancesServiceSecurityGroup
+      IpProtocol: tcp
+      ToPort: 65535
+  ClusterLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      SecurityGroups:
+      - !Ref LoadBalancerPublicSecurityGroup
+      - !Ref ClusterInstancesServiceSecurityGroup
+      Subnets: !Ref Subnets
+      Type: application
+  ClusterDemoServiceTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckPath: /ServiceCenter/_ping.html
+      Port: 80
+      Protocol: HTTP
+      Targets:
+      - Id: !Select [ 0, !Ref OutSystemsPlatformFrontendServers ]
+        Port: 80
+      VpcId: !Ref VpcId
+  ClusterDemoServiceListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref ClusterDemoServiceTargetGroup
+      LoadBalancerArn: !Ref ClusterLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  ClusterInstancesLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      AssociatePublicIpAddress: true
+      BlockDeviceMappings:
+      - DeviceName: "/dev/sda1"
+        Ebs:
+          VolumeSize: 200
+          VolumeType: "gp2"
+      IamInstanceProfile: !Ref ClusterInstancesProfile
+      ImageId: !FindInMap [Parameters, !Ref "AWS::Region", ami]
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPair
+      SecurityGroups:
+      - !Ref ClusterInstancesServiceSecurityGroup
+      - !Ref RDSDBInstanceSecurityGroup
+      UserData: !Base64
+       "Fn::Sub": |
+          <powershell>
+            Write-Host "Importing ECSTools"
+            Import-Module ECSTools
+            Write-Host "Initializing ECSAgent"
+            Initialize-ECSAgent -Cluster '${ClusterName}' -EnableTaskIAMRole -Version latest
+            Write-Host "Configuring Scheduled Task"
+            New-Item -ItemType Directory -Force -Path C:\docker
+            Set-Content -Path c:\docker\sync.ps1 -Value '
+            $bucketName = "${ContainerConfigurationBucket}"
+            foreach ($object in $(Get-S3Object -BucketName $bucketName)) {
+                $item = Get-Item ("c:\docker\{0}" -f $object.Key.ToString())
+                if ($item.LastWriteTimeUtc -lt $object.LastModified) {
+                    Write-Host ("{0} is more recent then local file" -f $object.Key.ToString())
+                    Copy-S3Object -BucketName $bucketName -Key $object.Key -LocalFile ("c:\docker\{0}" -f $object.Key)
+                }
+            }'
+            $action = New-ScheduledTaskAction -Execute 'Powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -command c:\docker\sync.ps1'
+            $now = ([DateTime]::Now)
+            $timespan = $now.AddYears(10) - $now;
+            $me = $(whoami)
+            Write-Host "Creating new ScheduledTaskPrincipal"
+            $principal = New-ScheduledTaskPrincipal -UserId $me -LogonType S4U
+            Write-Host "Creating new ScheduledTaskTrigger"
+            $trigger = New-ScheduledTaskTrigger -Once -At $now -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration $timespan
+            Write-Host "Registering ScheduledTask"
+            Register-ScheduledTask -Action $action -Trigger $trigger -TaskName "SyncContainerConfigs" -Description "Sync OutSystems container configs" -Principal $principal
+            Write-Host "docker pull microsoft/iis"
+            Start-Process -FilePath "$env:ProgramFiles\docker\docker.exe" -ArgumentList @("pull", "microsoft/iis") -NoNewWindow -Wait
+          </powershell>
+  ClusterInstancesAutoScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      Cooldown: "300"
+      DesiredCapacity: "1"
+      LaunchConfigurationName: !Ref ClusterInstancesLaunchConfiguration
+      MaxSize: "4"
+      MinSize: "1"
+      Tags:
+      - Key: Name
+        Value: !Sub "${ClusterName}-instance"
+        PropagateAtLaunch: true
+      VPCZoneIdentifier: !Ref Subnets
+  DeploymentControllerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DeploymentScriptPermissions
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Resource: "*"
+            Action:
+            - ecr:CreateRepository
+            - ecr:DeleteRepository
+            - ecr:BatchCheckLayerAvailability
+            - ecr:CompleteLayerUpload
+            - ecr:GetAuthorizationToken
+            - ecr:InitiateLayerUpload
+            - ecr:PutImage
+            - ecr:UploadLayerPart
+            - ecr:CreateService
+            - ecr:DescribeServices
+            - ecr:RegisterTaskDefinition
+            - ecr:UpdateService
+          - Effect: Allow
+            Resource: "*"
+            Action:
+            - elasticloadbalancing:CreateRule
+            - elasticloadbalancing:CreateTargetGroup
+            - elasticloadbalancing:DescribeRules
+      Roles:
+       - !Ref DeploymentControllerRole
+  DeploymentControllerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: /outsystems/
+  DeploymentControllerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /outsystems/
+      Roles:
+        - !Ref DeploymentControllerRole
