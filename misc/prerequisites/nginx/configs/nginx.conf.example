@@ -1,0 +1,34 @@
+user  nginx;
+worker_processes  2;
+worker_rlimit_nofile 30000;
+
+error_log  /var/log/nginx/error.log warn;
+pid        /var/run/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    # More informative logs
+    log_format  main  '[$time_local] $remote_addr to: $upstream_addr: "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for" "cookies=$http_cookie;"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout  240;
+
+    proxy_read_timeout  300s;
+
+    #gzip  on;
+
+    # Important configuration: loads every conf file in the /etc/nginx/conf.d/ folder
+    include /etc/nginx/conf.d/*.conf;
+}
