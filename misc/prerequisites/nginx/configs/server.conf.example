@@ -17,8 +17,9 @@ server {
     listen [::]:80 default_server;
 
     location / {
-        # Change the site name to the one applicable to your scenario
+        # CHANGE THIS: the site name to the one applicable to your scenario
         proxy_pass http://outsystems.domain.example.com;
+        
         proxy_set_header HOST $host;
     }
 
@@ -32,15 +33,17 @@ server {
 
     # certs sent to the client in SERVER HELLO are concatenated in 
     # ssl_certificate
-    #
-    # Change the certificate pair to the one applicable to your scenario
+
+    # CHANGE THIS: the certificate pair to the one applicable to your scenario
     ssl_certificate /etc/ssl/site.domain.example.com.pem;
     ssl_certificate_key /etc/ssl/site.domain.example.com.key;
 
     location / {
-        # Change the site name to the one applicable to your scenario
+        # CHANGE THIS: the site name to the one applicable to your scenario
         proxy_pass http://outsystems.domain.example.com;
+
         proxy_set_header HOST $host;
+
         # Adds the required header for SSL Offloading
 	    proxy_set_header X-Forwarded-Proto $scheme;
     }
