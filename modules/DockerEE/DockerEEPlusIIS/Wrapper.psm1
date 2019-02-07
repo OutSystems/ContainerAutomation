@@ -15,7 +15,8 @@ Function CreateRewriteRulesOnContainerRun {
     $SiteName = $(DetermineSiteName -SiteName $OpInfo.SiteName)
 
     $(CreateSiteForWildcard -SiteName $SiteName `
-                            -SiteFolderPath $OpInfo.FilePaths.SiteFolderPath)
+                            -SiteFolderPath $OpInfo.FilePaths.SiteFolderPath `
+                            -Domain $AdditionalParameters.ContainerMachineDomain)
 
     # $ContainerInfo.Config.Hostname is not working on Windows Server Core, using IPAddress
     $ContainerHostname = $ContainerInfo.NetworkSettings.Networks.nat.IPAddress

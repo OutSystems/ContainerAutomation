@@ -7,7 +7,8 @@ Import-Module $(Join-Path -Path "$ExecutionPath" -ChildPath "GeneralUtils.psm1")
 Function CreateSiteForWildcard {
     Param (
         [Parameter(Mandatory=$false)][String]$SiteName,
-        [Parameter(Mandatory=$true)][String]$SiteFolderPath
+        [Parameter(Mandatory=$true)][String]$SiteFolderPath,
+        [Parameter(Mandatory=$false)][String]$Domain
     )
 
     try {
@@ -16,7 +17,10 @@ Function CreateSiteForWildcard {
         $SiteName = $(EnsureSiteNameSanity -SiteName $SiteName)
 
         if (-not $(Get-IISSite -Name $SiteName)) {
-            $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
+            if (-not $Domain) {
+                $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
+            }
+
             $Hostname = $($(hostname) + "." + $Domain)
 
             New-Item -Force -Path $SiteFolderPath -Type Directory
