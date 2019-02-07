@@ -1,0 +1,52 @@
+# This configuration guarantees that both HTTP & HTTPS requests to NGiNX are 
+# rerouted to the correct machine. Note that SSL Offloading will be
+# done for HTTPS requests.
+#
+# By default, all requests are redirected to the OutSystems Machine, as
+# described by the 'location' sections.
+#
+# Additional 'location' configurations will be loaded from /etc/nginx/conf.d/
+#
+# The DockerPlusNGiNX Container Automation module will automatically create
+# location config files during deployments. 
+# The rewrite rules map one to one to each module of an application.
+
+server {
+    client_max_body_size 512M;
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    location / {
+        # CHANGE THIS: the site name to the one applicable to your scenario
+        proxy_pass http://outsystems.domain.example.com;
+        
+        proxy_set_header HOST $host;
+    }
+
+    include /etc/nginx/conf.d/*.location;
+}
+
+server {
+    client_max_body_size 512M;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+
+    # certs sent to the client in SERVER HELLO are concatenated in 
+    # ssl_certificate
+
+    # CHANGE THIS: the certificate pair to the one applicable to your scenario
+    ssl_certificate /etc/ssl/site.domain.example.com.pem;
+    ssl_certificate_key /etc/ssl/site.domain.example.com.key;
+
+    location / {
+        # CHANGE THIS: the site name to the one applicable to your scenario
+        proxy_pass http://outsystems.domain.example.com;
+
+        proxy_set_header HOST $host;
+
+        # Adds the required header for SSL Offloading
+	    proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    include /etc/nginx/conf.d/*.location;
+}

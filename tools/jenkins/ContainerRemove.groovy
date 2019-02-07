@@ -1,6 +1,6 @@
 node {
     psScript = """
-    Import-Module C:/jenkins/modules/HostingTechnologyModuleLoader.psm1 -ArgumentList 'DockerEEPlusIIS' -Force
+    Import-Module C:/jenkins/modules/HostingTechnologyModuleLoader.psm1 -ArgumentList '${params.HostingTechnology}' -Force
 
     if ('${params.Address}' -ne '') {
         ContainerRemove         -PlatformParameters @{ 
