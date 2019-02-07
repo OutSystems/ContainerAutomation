@@ -266,9 +266,9 @@ Function CleanUpContainerArtefacts {
                 }
 
                 if ($Artefact.Attributes -eq "Directory") {
-                    $(Remove-Item -LiteralPath $Artefact.FullName -Force -Recurse) 2>$FileDeleteError
+                    $(Remove-Item -LiteralPath "\\?\$($Artefact.FullName)" -Force -Recurse) 2>$FileDeleteError
                 } else {
-                    $(Remove-Item -LiteralPath $Artefact.FullName -Force) 2>$FileDeleteError
+                    $(Remove-Item -LiteralPath "\\?\$($Artefact.FullName)" -Force) 2>$FileDeleteError
                 }
 
                 if ($FileDeleteError) {
