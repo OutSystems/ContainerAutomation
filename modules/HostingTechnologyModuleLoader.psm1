@@ -231,7 +231,7 @@ Function CreateMarkerFile {
     if ($WrapperResult.Error) {
         $ErrorMessage = @{}
         $ErrorMessage.Error = @{}
-        $ErrorMessage.Error.Message = "Container Automation: Check the log '$($global:LogFilePath)' for more info."
+        $ErrorMessage.Error.Message = "Container Automation: Check the machine $(hostname)'s log in '$($global:LogFilePath)' for more info."
         $MarkerFileData = $ErrorMessage
     }
 
