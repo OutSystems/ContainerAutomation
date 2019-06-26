@@ -85,7 +85,7 @@ Function GetOrCreateTargetGroup {
     if (-not $TargetGroupResult) {
         $LoadBalancerArn = $global:AWSLoadBalancerArn
 
-        $VpcID = $(GetVpcId -LoadBalancerName $LoadBalancerArn)
+        $VpcID = $(GetVpcId -LoadBalancerArn $LoadBalancerArn)
 
         $TargetGroupResult = New-ELB2TargetGroup    -HealthCheckIntervalSecond 60 `
                                                     -HealthCheckPath "/$($ModuleName)/_ping.aspx" `
